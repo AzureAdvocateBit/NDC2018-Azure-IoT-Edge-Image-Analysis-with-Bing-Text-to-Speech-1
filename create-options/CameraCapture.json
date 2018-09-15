@@ -1,0 +1,24 @@
+{
+    "Env": [
+        "VIDEO_PATH=0",
+        "IMAGE_PROCESSING_ENDPOINT=http://keras-classifier-service:80/image",
+        "EdgeModuleCACertificateFile=/etc/ssl/certs/ca-certificates.crt",
+        "EdgeHubConnectionString=HostName=glovebox-iothub.azure-devices.net;DeviceId=ubuntu;SharedAccessKey=J8SvZ4Ued728owP30S/LDHu/XmL1TLjnYBZdK6jKG6A="
+    ],
+    "HostConfig": {
+        "PortBindings": {
+            "3001/tcp": [
+                {
+                    "HostPort": "3001"
+                }
+            ]
+        },
+        "Devices": [
+            {
+                "PathOnHost": "/dev/video0",
+                "PathInContainer": "/dev/video0",
+                "CgroupPermissions": "mrw"
+            }
+        ]
+    }
+}

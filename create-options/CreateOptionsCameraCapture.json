@@ -1,0 +1,20 @@
+{
+    "Env": [
+        "IMAGE_PROCESSING_ENDPOINT=http://image-classifier-service:80/image",
+        "VERBOSE=FALSE"
+    ],
+    "HostConfig": {
+        "PortBindings": {
+            "3002/tcp": [
+                {
+                    "HostPort": "3002"
+                }
+            ],
+            "8000/tcp": [
+                {
+                    "HostPort": "8000"
+                }
+            ]
+        }
+    }
+}

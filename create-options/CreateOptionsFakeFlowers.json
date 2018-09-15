@@ -1,0 +1,1 @@
+{\"Env\":[\"VIDEO_PATH=0\",\"IMAGE_PROCESSING_ENDPOINT=http://image-classifier-service:80/image\",\"VERBOSE=FALSE\",\"EdgeHubConnectionString=HostName=glovebox-iothub.azure-devices.net;DeviceId=ubuntu;SharedAccessKey=J8SvZ4Ued728owP30S/LDHu/XmL1TLjnYBZdK6jKG6A=\"],\"HostConfig\":{\"PortBindings\":{\"3001/tcp\":[{\"HostPort\":\"3001\"}]}}}

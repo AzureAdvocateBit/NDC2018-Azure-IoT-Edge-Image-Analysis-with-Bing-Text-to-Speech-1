@@ -1,0 +1,14 @@
+{
+    "$schema-version": "0.0.1",
+    "description": "",
+    "image": {
+        "repository": "glovebox/camera-capture-pi-camera",
+        "tag": {
+            "version": "2.2",
+            "platforms": {
+                "arm32v7": "./Dockerfile.arm32v7"
+            }
+        }
+    },
+    "language": "python"
+}

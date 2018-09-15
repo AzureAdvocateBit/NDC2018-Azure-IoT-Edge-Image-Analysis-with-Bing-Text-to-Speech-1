@@ -1,0 +1,6 @@
+tensorflow
+pillow
+numpy==1.14.5
+flask
+ptvsd==3.0.0
+keras

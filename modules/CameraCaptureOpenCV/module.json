@@ -6,9 +6,9 @@
                 "amd64": "./amd64.Dockerfile",
                 "arm32v7": "./arm32v7-2.Dockerfile"
             },
-            "version": "0.1.1935"
+            "version": "0.1.1942"
         },
-        "repository": "glovebox/cameracaptureopencv"
+        "repository": "glovebox/camera-capture-opencv"
     },
     "description": "",
     "language": "python"

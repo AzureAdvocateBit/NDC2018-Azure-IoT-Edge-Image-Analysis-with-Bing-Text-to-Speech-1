@@ -1,10 +1,10 @@
-#To make python 2 and python 3 compatible code
+# To make python 2 and python 3 compatible code
 from __future__ import division
 from __future__ import absolute_import
 
-#Imports
+# Imports
 import sys
-if sys.version_info[0] < 3:#e.g python version <3
+if sys.version_info[0] < 3:  # e.g python version <3
     import cv2
 else:
     import cv2
@@ -25,19 +25,23 @@ import text2speech
 
 jpgdata = []
 
+
 def addImage(imageName):
     f = open(imageName, 'r+')
     jpgdata.append(f.read())
     f.close()
 
+
 imageCount = len(jpgdata)
+lastTagSpoken = ''
 
 count = 0
 
+
 class CameraCapture(object):
 
-    def __IsInt(self,string):
-        try: 
+    def __IsInt(self, string):
+        try:
             int(string)
             return True
         except ValueError:
@@ -47,27 +51,28 @@ class CameraCapture(object):
             self,
             videoPath,
             bingSpeechKey,
-            imageProcessingEndpoint = "",
-            imageProcessingParams = "", 
-            showVideo = False, 
-            verbose = True,
-            loopVideo = True,
-            convertToGray = False,
-            resizeWidth = 0,
-            resizeHeight = 0,
-            annotate = False,
-            sendToHubCallback = None
-            ):
+            predictThreshold,
+            imageProcessingEndpoint="",
+            imageProcessingParams="",
+            showVideo=False,
+            verbose=True,
+            loopVideo=True,
+            convertToGray=False,
+            resizeWidth=0,
+            resizeHeight=0,
+            annotate=False,
+            sendToHubCallback=None
+    ):
         self.videoPath = videoPath
         if self.__IsInt(videoPath):
-            #case of a usb camera (usually mounted at /dev/video* where * is an int)
+            # case of a usb camera (usually mounted at /dev/video* where * is an int)
             self.isWebcam = True
         else:
-            #case of a video file
+            # case of a video file
             self.isWebcam = False
         self.imageProcessingEndpoint = imageProcessingEndpoint
         if imageProcessingParams == "":
-            self.imageProcessingParams = "" 
+            self.imageProcessingParams = ""
         else:
             self.imageProcessingParams = json.loads(imageProcessingParams)
         self.showVideo = showVideo
@@ -76,80 +81,92 @@ class CameraCapture(object):
         self.convertToGray = convertToGray
         self.resizeWidth = resizeWidth
         self.resizeHeight = resizeHeight
-        self.annotate = (self.imageProcessingEndpoint != "") and self.showVideo & annotate
+        self.annotate = (self.imageProcessingEndpoint !=
+                         "") and self.showVideo & annotate
         self.nbOfPreprocessingSteps = 0
         self.autoRotate = False
         self.sendToHubCallback = sendToHubCallback
         self.vs = None
         self.tts = text2speech.TextToSpeech(bingSpeechKey)
+        self.predictThreshold = predictThreshold
 
         if self.convertToGray:
-            self.nbOfPreprocessingSteps +=1
+            self.nbOfPreprocessingSteps += 1
         if self.resizeWidth != 0 or self.resizeHeight != 0:
-            self.nbOfPreprocessingSteps +=1
+            self.nbOfPreprocessingSteps += 1
         if self.verbose:
             print("Initialising the camera capture with the following parameters: ")
             print("   - Video path: " + self.videoPath)
-            print("   - Image processing endpoint: " + self.imageProcessingEndpoint)
-            print("   - Image processing params: " + json.dumps(self.imageProcessingParams))
+            print("   - Image processing endpoint: " +
+                  self.imageProcessingEndpoint)
+            print("   - Image processing params: " +
+                  json.dumps(self.imageProcessingParams))
             print("   - Show video: " + str(self.showVideo))
             print("   - Loop video: " + str(self.loopVideo))
             print("   - Convert to gray: " + str(self.convertToGray))
             print("   - Resize width: " + str(self.resizeWidth))
             print("   - Resize height: " + str(self.resizeHeight))
             print("   - Annotate: " + str(self.annotate))
-            print("   - Send processing results to hub: " + str(self.sendToHubCallback is not None))
+            print("   - Send processing results to hub: " +
+                  str(self.sendToHubCallback is not None))
             print()
 
     def __annotate(self, frame, response):
         AnnotationParserInstance = AnnotationParser()
-        #TODO: Make the choice of the service configurable
-        listOfRectanglesToDisplay = AnnotationParserInstance.getCV2RectanglesFromProcessingService1(response)
+        # TODO: Make the choice of the service configurable
+        listOfRectanglesToDisplay = AnnotationParserInstance.getCV2RectanglesFromProcessingService1(
+            response)
         for rectangle in listOfRectanglesToDisplay:
-            cv2.rectangle(frame, (rectangle(0), rectangle(1)), (rectangle(2), rectangle(3)), (0,0,255),4)
+            cv2.rectangle(frame, (rectangle(0), rectangle(1)),
+                          (rectangle(2), rectangle(3)), (0, 0, 255), 4)
         return
 
     def __sendFrameForProcessing(self, frame):
-        global count, jpgdata
+        global count, jpgdata, lastTagSpoken
         count = count + 1
         # time.sleep(0.5)
         print("send frame: " + str(count))
 
         headers = {'Content-Type': 'application/octet-stream'}
-        response = requests.post(self.imageProcessingEndpoint, headers = headers, params = self.imageProcessingParams, data = frame)
+        response = requests.post(self.imageProcessingEndpoint, headers=headers,
+                                 params=self.imageProcessingParams, data=frame)
         if self.verbose:
             try:
-                print("Response from external processing service: (" + str(response.status_code) + ") " + json.dumps(response.json()))
+                print("Response from external processing service: (" +
+                      str(response.status_code) + ") " + json.dumps(response.json()))
             except Exception:
-                print("Response from external processing service (status code): " + str(response.status_code))
-        # print(response.json())
+                print("Response from external processing service (status code): " +
+                      str(response.status_code))
 
-        # print(response.content)
-        # jsonData = json.loads(response.content)
-        # print(jsonData)
-        # return(response.content)
+        sortResponse = sorted(
+            response.json(), key=lambda k: k['Probability'], reverse=True)[0]
 
-        sortResponse = sorted(response.json(), key=lambda k: k['Probability'], reverse=True)[0]
         probability = sortResponse['Probability']
-        if probability > 0.70:
+
+        if probability > self.predictThreshold and sortResponse['Tag'] != lastTagSpoken:
+            lastTagSpoken = sortResponse['Tag']
             self.tts.Text2Speech(sortResponse['Tag'])
+            return json.dumps(response.json())
+        else:
+            return []
 
-        jsonData = json.dumps(sortResponse)
-        print(jsonData)
+        # jsonData = json.dumps(sortResponse)
+        # print(jsonData)
 
-        return json.dumps(response.json())
+        # return json.dumps(response.json())
 
     def __displayTimeDifferenceInMs(self, endTime, startTime):
         return str(int((endTime-startTime) * 1000)) + " ms"
 
     def __enter__(self):
         if self.isWebcam:
-            #The VideoStream class always gives us the latest frame from the webcam. It uses another thread to read the frames.
+            # The VideoStream class always gives us the latest frame from the webcam. It uses another thread to read the frames.
             self.vs = VideoStream(int(self.videoPath)).start()
-            time.sleep(1.0)#needed to load at least one frame into the VideoStream class
+            # needed to load at least one frame into the VideoStream class
+            time.sleep(1.0)
             #self.capture = cv2.VideoCapture(int(self.videoPath))
         else:
-            #In the case of a video file, we want to analyze all the frames fo the video thus are not using VideoStream class
+            # In the case of a video file, we want to analyze all the frames fo the video thus are not using VideoStream class
             self.capture = cv2.VideoCapture(self.videoPath)
         return self
 
@@ -162,7 +179,7 @@ class CameraCapture(object):
             if self.verbose:
                 startCapture = time.time()
 
-            frameCounter +=1
+            frameCounter += 1
             if self.isWebcam:
                 frame = self.vs.read()
             else:
@@ -171,105 +188,124 @@ class CameraCapture(object):
                     if self.capture.get(cv2.CAP_PROP_FRAME_WIDTH) < self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT):
                         self.autoRotate = True
                 if self.autoRotate:
-                    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE) #The counterclockwise is random...It coudl well be clockwise. Is there a way to auto detect it?
+                    # The counterclockwise is random...It coudl well be clockwise. Is there a way to auto detect it?
+                    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
             if self.verbose:
                 if frameCounter == 1:
                     if not self.isWebcam:
-                        print("Original frame size: " + str(int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))) + "x" + str(int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))))
-                        print("Frame rate (FPS): " + str(int(self.capture.get(cv2.CAP_PROP_FPS))))
+                        print("Original frame size: " + str(int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+                                                            ) + "x" + str(int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))))
+                        print("Frame rate (FPS): " +
+                              str(int(self.capture.get(cv2.CAP_PROP_FPS))))
                 print("Frame number: " + str(frameCounter))
-                print("Time to capture (+ straighten up) a frame: " + self.__displayTimeDifferenceInMs(time.time(), startCapture))
+                print("Time to capture (+ straighten up) a frame: " +
+                      self.__displayTimeDifferenceInMs(time.time(), startCapture))
                 startPreProcessing = time.time()
-            
-            #Loop video
-            if not self.isWebcam:             
+
+            # Loop video
+            if not self.isWebcam:
                 if frameCounter == self.capture.get(cv2.CAP_PROP_FRAME_COUNT):
-                    if self.loopVideo: 
+                    if self.loopVideo:
                         frameCounter = 0
                         self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     else:
                         break
 
-            #Pre-process locally
+            # Pre-process locally
             if self.nbOfPreprocessingSteps == 1 and self.convertToGray:
                 preprocessedFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            
+
             if self.nbOfPreprocessingSteps == 1 and (self.resizeWidth != 0 or self.resizeHeight != 0):
-                preprocessedFrame = cv2.resize(frame, (self.resizeWidth, self.resizeHeight))
+                preprocessedFrame = cv2.resize(
+                    frame, (self.resizeWidth, self.resizeHeight))
 
             if self.nbOfPreprocessingSteps > 1:
                 preprocessedFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                preprocessedFrame = cv2.resize(preprocessedFrame, (self.resizeWidth,self.resizeHeight))
-            
+                preprocessedFrame = cv2.resize(
+                    preprocessedFrame, (self.resizeWidth, self.resizeHeight))
+
             if self.verbose:
-                print("Time to pre-process a frame: " + self.__displayTimeDifferenceInMs(time.time(), startPreProcessing))
+                print("Time to pre-process a frame: " +
+                      self.__displayTimeDifferenceInMs(time.time(), startPreProcessing))
                 startEncodingForProcessing = time.time()
 
-            #Process externally
+            # Process externally
             if self.imageProcessingEndpoint != "":
 
-                #Encode frame to send over HTTP
+                # Encode frame to send over HTTP
                 if self.nbOfPreprocessingSteps == 0:
                     encodedFrame = cv2.imencode(".jpg", frame)[1].tostring()
                 else:
-                    encodedFrame = cv2.imencode(".jpg", preprocessedFrame)[1].tostring()
-                    
+                    encodedFrame = cv2.imencode(".jpg", preprocessedFrame)[
+                        1].tostring()
 
                 if self.verbose:
-                    print("Time to encode a frame for processing: " + self.__displayTimeDifferenceInMs(time.time(), startEncodingForProcessing))
+                    print("Time to encode a frame for processing: " +
+                          self.__displayTimeDifferenceInMs(time.time(), startEncodingForProcessing))
                     startProcessingExternally = time.time()
-                
+
                 # print('encode as jpg - dglover')
                 # print(base64.encodestring(encodedFrame))
-                #Send over HTTP for processing
+                # Send over HTTP for processing
                 response = self.__sendFrameForProcessing(encodedFrame)
                 if self.verbose:
-                    print("Time to process frame externally: " + self.__displayTimeDifferenceInMs(time.time(), startProcessingExternally))
+                    print("Time to process frame externally: " +
+                          self.__displayTimeDifferenceInMs(time.time(), startProcessingExternally))
                     startSendingToEdgeHub = time.time()
-                
-                #forwarding outcome of external processing to the EdgeHub
+
+                # forwarding outcome of external processing to the EdgeHub
                 if response != "[]" and self.sendToHubCallback is not None:
                     self.sendToHubCallback(response)
                     if self.verbose:
-                        print("Time to message from processing service to edgeHub: " + self.__displayTimeDifferenceInMs(time.time(), startSendingToEdgeHub))
+                        print("Time to message from processing service to edgeHub: " +
+                              self.__displayTimeDifferenceInMs(time.time(), startSendingToEdgeHub))
                         startDisplaying = time.time()
 
-            #Display frames
+            # Display frames
             if self.showVideo:
                 try:
                     if self.nbOfPreprocessingSteps == 0:
                         if self.verbose and (perfForOneFrameInMs is not None):
-                            cv2.putText(frame, "FPS " + str(round(1000/perfForOneFrameInMs, 2)),(10, 35),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,0,255), 2)
+                            cv2.putText(frame, "FPS " + str(round(1000/perfForOneFrameInMs, 2)),
+                                        (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
                         if self.annotate:
-                            #TODO: fix bug with annotate function
+                            # TODO: fix bug with annotate function
                             self.__annotate(frame, response)
                         cv2.imshow('frame', frame)
                     else:
                         if self.verbose and (perfForOneFrameInMs is not None):
-                            cv2.putText(preprocessedFrame, "FPS " + str(round(1000/perfForOneFrameInMs, 2)),(10, 35),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0,0,255), 2)
+                            cv2.putText(preprocessedFrame, "FPS " + str(round(1000/perfForOneFrameInMs, 2)),
+                                        (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
                         if self.annotate:
-                            #TODO: fix bug with annotate function
+                            # TODO: fix bug with annotate function
                             self.__annotate(preprocessedFrame, response)
                         cv2.imshow('frame', preprocessedFrame)
                 except Exception:
-                    print("Could not display the video to an X server. Fix the X server or turn off showing video.") 
+                    print(
+                        "Could not display the video to an X server. Fix the X server or turn off showing video.")
                 if self.verbose:
                     if 'startDisplaying' in locals():
-                        print("Time to display frame: " + self.__displayTimeDifferenceInMs(time.time(), startDisplaying))
+                        print("Time to display frame: " +
+                              self.__displayTimeDifferenceInMs(time.time(), startDisplaying))
                     elif 'startSendingToEdgeHub' in locals():
-                        print("Time to display frame: " + self.__displayTimeDifferenceInMs(time.time(), startSendingToEdgeHub))
+                        print("Time to display frame: " +
+                              self.__displayTimeDifferenceInMs(time.time(), startSendingToEdgeHub))
                     else:
-                        print("Time to display frame: " + self.__displayTimeDifferenceInMs(time.time(), startEncodingForProcessing))
+                        print("Time to display frame: " + self.__displayTimeDifferenceInMs(
+                            time.time(), startEncodingForProcessing))
                 perfForOneFrameInMs = int((time.time()-startOverall) * 1000)
                 if not self.isWebcam:
-                    waitTimeBetweenFrames = max(int(1000 / self.capture.get(cv2.CAP_PROP_FPS))-perfForOneFrameInMs, 1)
-                    print("Wait time between frames :" + str(waitTimeBetweenFrames))
+                    waitTimeBetweenFrames = max(
+                        int(1000 / self.capture.get(cv2.CAP_PROP_FPS))-perfForOneFrameInMs, 1)
+                    print("Wait time between frames :" +
+                          str(waitTimeBetweenFrames))
                     if cv2.waitKey(waitTimeBetweenFrames) & 0xFF == ord('q'):
                         break
 
             if self.verbose:
                 perfForOneFrameInMs = int((time.time()-startOverall) * 1000)
-                print("Total time for one frame: " + self.__displayTimeDifferenceInMs(time.time(), startOverall))
+                print("Total time for one frame: " +
+                      self.__displayTimeDifferenceInMs(time.time(), startOverall))
 
     def __exit__(self, exception_type, exception_value, traceback):
         if not self.isWebcam:

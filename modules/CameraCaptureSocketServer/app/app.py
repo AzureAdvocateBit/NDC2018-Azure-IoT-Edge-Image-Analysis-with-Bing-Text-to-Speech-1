@@ -22,10 +22,10 @@ import cStringIO
 #                            IoTHubMessage, IoTHubMessageDispositionResult,
 #                            IoTHubTransportProvider)
 from iothub_client import (IoTHubError, IoTHubMessage, IoTHubTransportProvider)
-
-ptvsd.enable_attach("glovebox", address=('0.0.0.0', 3002))
+hubManager = None
+IMAGE_CLASSIFY_THRESHOLD = 0.95
+# ptvsd.enable_attach("glovebox", address=('0.0.0.0', 3002))
 # ptvsd.wait_for_attach()
-
 
 
 def send_to_Hub_callback(strMessage):
@@ -39,10 +39,11 @@ def sendFrameForProcessing(imageProcessingEndpoint, imageProcessingParams, verbo
     connection = server_socket.accept()[0].makefile('rb')
     try:
         while True:
-            try: 
+            try:
                 # Read the length of the image as a 32-bit unsigned int. If the
                 # length is zero, quit the loop
-                image_len = struct.unpack('<L', connection.read(struct.calcsize('<L')))[0]
+                image_len = struct.unpack(
+                    '<L', connection.read(struct.calcsize('<L')))[0]
                 if not image_len:
                     break
                 # Construct a stream to hold the image data and read the image
@@ -50,33 +51,15 @@ def sendFrameForProcessing(imageProcessingEndpoint, imageProcessingParams, verbo
                 image_stream = io.BytesIO()
                 image_stream.write(connection.read(image_len))
                 image_stream.seek(0)
-                image = Image.open(image_stream)
 
-                buffer = cStringIO.StringIO()
-                image.save(buffer, format="JPEG")
+                image = {'imageData': image_stream}
 
-                ba = buffer.getvalue()
+                try:
+                    requests.post('http://localhost:80/image',
+                                  files=image, hooks={'response': c_request_response})
+                except Exception as e:
+                    print(e)
 
-                img_str = base64.b64encode(ba)
-
-                # Set up the HTTP POST
-                headers = {'Content-Type': 'application/octet-stream'}
-                response = requests.post(
-                    imageProcessingEndpoint, headers=headers, params=imageProcessingParams, data=ba)
-
-                jsonData = json.dumps(response.json())
-
-                print(jsonData)
-
-                if jsonData != "[]":
-                    send_to_Hub_callback(jsonData)
-
-
-                # print(img_str)
-
-                print('Image is %dx%d' % image.size)
-                image.verify()
-                print('Image is verified')
             except:
                 print('error')
                 connection.close()
@@ -87,12 +70,51 @@ def sendFrameForProcessing(imageProcessingEndpoint, imageProcessingParams, verbo
         server_socket.close()
 
 
+# Image classifier module callback where we display on the oled (if connected).
+def c_request_response(r, *args, **kwargs):
+    response = json.loads(r.content)
+    # print(response)
+
+    sortResponse = sorted(
+        response, key=lambda k: k['Probability'], reverse=True)[0]
+    probability = sortResponse['Probability']
+
+    print(sortResponse)
+    if probability > IMAGE_CLASSIFY_THRESHOLD:
+        #     tts.Text2Speech(sortResponse['Tag'])
+
+        # label = sortResponse['Tag']
+        # print('Label: {}, Probability: {:.2f}'.format(label, probability))
+
+        # Send the prediction to IoT Edge.
+        message = IoTHubMessage(r.content)
+        hubManager.client.send_event_async(
+            "predictions", message, send_confirmation_callback, response)
+
+def send_confirmation_callback(message, result, user_context):
+    print("Confirmation received with result: {} message: {}\n".format(
+        result, user_context))
+
+# device_twin_callback is invoked when twin's desired properties are updated.
+def device_twin_callback(update_state, payload, user_context):
+    global IMAGE_CLASSIFY_THRESHOLD
+
+    print("\nTwin callback called with:\nupdateStatus = {}\npayload = {}".format(
+        update_state, payload))
+    data = json.loads(payload)
+    if "desired" in data:
+        data = data["desired"]
+
+    if "ImageClassifyThreshold" in data:
+        IMAGE_CLASSIFY_THRESHOLD = float(data["ImageClassifyThreshold"])
+
 def main(connectionString, imageProcessingEndpoint="", imageProcessingParams="", verbose=False):
     try:
         try:
             global hubManager
             hubManager = HubManager.HubManager(
                 connectionString, 10000, IoTHubTransportProvider.MQTT, verbose)
+            hubManager.client.set_device_twin_callback(device_twin_callback, 0)
         except IoTHubError as iothub_error:
             print("Unexpected error %s from IoTHub" % iothub_error)
             return

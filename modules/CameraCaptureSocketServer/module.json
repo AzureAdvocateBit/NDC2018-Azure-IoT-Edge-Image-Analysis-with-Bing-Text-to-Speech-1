@@ -7,7 +7,7 @@
             },
             "version": "0.1.2672"
         },
-        "repository": "localhost:5000/imageserver"
+        "repository": "localhost:5000/camera-capture-socket-server"
     },
     "description": "",
     "language": "python"

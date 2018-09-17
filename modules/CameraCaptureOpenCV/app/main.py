@@ -22,6 +22,8 @@ SEND_CALLBACKS = 0
 
 
 def send_to_Hub_callback(strMessage):
+    if strMessage == []:
+        return
     message = IoTHubMessage(bytearray(strMessage, 'utf8'))
     hubManager.send_event_to_output("output1", message, 0)
 
@@ -84,6 +86,7 @@ def main(
         connectionString,
         videoPath,
         bingSpeechKey,
+        predictThreshold,
         imageProcessingEndpoint="",
         imageProcessingParams="",
         showVideo=False,
@@ -119,7 +122,7 @@ def main(
         except IoTHubError as iothub_error:
             print ("Unexpected error %s from IoTHub" % iothub_error)
             return
-        with CameraCapture(videoPath, bingSpeechKey, imageProcessingEndpoint, imageProcessingParams, showVideo, verbose, loopVideo, convertToGray, resizeWidth, resizeHeight, annotate, send_to_Hub_callback) as cameraCapture:
+        with CameraCapture(videoPath, bingSpeechKey, predictThreshold, imageProcessingEndpoint, imageProcessingParams, showVideo, verbose, loopVideo, convertToGray, resizeWidth, resizeHeight, annotate, send_to_Hub_callback) as cameraCapture:
             cameraCapture.start()
     except KeyboardInterrupt:
         print ("Camera capture module stopped")
@@ -138,6 +141,7 @@ if __name__ == '__main__':
     try:
         CONNECTION_STRING = os.getenv('IotHubCS')
         VIDEO_PATH = os.getenv('Video', '0')
+        PREDICT_THRESHOLD = os.getenv('Threshold', .95)
         IMAGE_PROCESSING_ENDPOINT = os.getenv('AiEndpoint')
         IMAGE_PROCESSING_PARAMS = os.getenv('IMAGE_PROCESSING_PARAMS', "")
         SHOW_VIDEO = __convertStringToBool(os.getenv('SHOW_VIDEO', 'False'))
@@ -154,5 +158,5 @@ if __name__ == '__main__':
         print (error)
         sys.exit(1)
 
-    main(CONNECTION_STRING, VIDEO_PATH, BING_SPEECH_KEY, IMAGE_PROCESSING_ENDPOINT, IMAGE_PROCESSING_PARAMS,
+    main(CONNECTION_STRING, VIDEO_PATH, BING_SPEECH_KEY, PREDICT_THRESHOLD, IMAGE_PROCESSING_ENDPOINT, IMAGE_PROCESSING_PARAMS,
          SHOW_VIDEO, VERBOSE, LOOP_VIDEO, CONVERT_TO_GRAY, RESIZE_WIDTH, RESIZE_HEIGHT, ANNOTATE)

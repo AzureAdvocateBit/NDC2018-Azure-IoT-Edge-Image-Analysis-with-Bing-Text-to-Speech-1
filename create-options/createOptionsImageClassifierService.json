@@ -1,0 +1,1 @@
+{\"HostConfig\":{\"Binds\":[\"/home/pi/images:/images\"],\"PortBindings\":{\"3000/tcp\":[{\"HostPort\":\"3000\"}]}}}

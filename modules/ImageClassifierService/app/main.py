@@ -28,6 +28,7 @@ app = Flask(__name__)
 # 4MB Max image size limit
 app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024 
 
+count = 0
 
 # Default route just shows simple text
 @app.route('/')
@@ -39,6 +40,7 @@ def index():
 #     - a multipart/form-data with files in the imageData parameter
 @app.route('/image', methods=['POST'])
 def predict_image_handler():
+    global count
     try:
         print('data received')
         imageData = None
@@ -49,6 +51,12 @@ def predict_image_handler():
 
         #img = scipy.misc.imread(imageData)
         img = Image.open(imageData)
+        count = count + 1
+
+        # img.save('/images/image' + str(count) + '.jpg', "JPEG")
+
+
+
         results = predict_image(img)
         return json.dumps(results)
     except Exception as e:

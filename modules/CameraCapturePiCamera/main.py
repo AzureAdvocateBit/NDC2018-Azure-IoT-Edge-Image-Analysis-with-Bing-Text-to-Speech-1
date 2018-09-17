@@ -12,37 +12,16 @@ import numpy as np
 import devicecheck
 import hubmanager
 import oleddisplay
-import pyaudio
 from iothub_client import IoTHubMessage
-
+import text2speech
 
 
 oled_display = None
 hub = None
-IMAGE_CLASSIFY_THRESHOLD = .5
+IMAGE_CLASSIFY_THRESHOLD = .95
 
+tts = text2speech.TextToSpeech(os.getenv('BingKey'))
 
-def play_audio(samples, fs=44100, volume=0.5):
-    p = pyaudio.PyAudio()
-    stream = p.open(format=pyaudio.paFloat32,
-                    channels=1,
-                    rate=fs,
-                    output=True)
-
-    # play. May repeat with different volume values (if done interactively) 
-    stream.write(volume*samples)
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-
-def play_sample():
-    f = 440.0        # sine frequency, Hz, may be float    
-    duration = 1.0   # in seconds, may be float
-    fs = 44100       # sampling rate, Hz, must be integer
-    # generate samples, note conversion to float32 array
-    # for paFloat32 sample values must be in range [-1.0, 1.0]
-    samples = (np.sin(2*np.pi*np.arange(fs*duration)*f/fs)).astype(np.float32)
-    play_audio(samples)
 
 # Pull camera images and stream data to image classifier module.
 def stream_camera_data(camera):
@@ -53,20 +32,23 @@ def stream_camera_data(camera):
         image = {'imageData': stream}
 
         try:
-            requests.post('http://image-classifier-service:80/image', files=image, hooks={'response': c_request_response})
+            requests.post('http://image-classifier-service:80/image',
+                          files=image, hooks={'response': c_request_response})
         except Exception as e:
             print(e)
 
 
 # Image classifier module callback where we display on the oled (if connected).
 def c_request_response(r, *args, **kwargs):
-    print(r.content)
-    # results = json.loads(r.content)
-    # print(results)
-    return
-    
-    label = results[0]['label']
-    probability = results[0]['score']
+    response = json.loads(r.content)
+
+    sortResponse = sorted(
+        response, key=lambda k: k['Probability'], reverse=True)[0]
+    probability = sortResponse['Probability']
+    if probability > IMAGE_CLASSIFY_THRESHOLD:
+        tts.Text2Speech(sortResponse['Tag'])
+
+    label = sortResponse['Tag']
     print('Label: {}, Probability: {:.2f}'.format(label, probability))
     # play_sample()
     # Display the results on the OLED display.
@@ -77,18 +59,20 @@ def c_request_response(r, *args, **kwargs):
     # Send the prediction to IoT Edge.
     message = IoTHubMessage(r.content)
     hub.client.send_event_async(
-        "predictions", message, send_confirmation_callback, results)
+        "predictions", message, send_confirmation_callback, response)
 
 
 def send_confirmation_callback(message, result, user_context):
-    print("Confirmation received with result: {} message: {}\n".format(result, user_context))
+    print("Confirmation received with result: {} message: {}\n".format(
+        result, user_context))
 
 
 # device_twin_callback is invoked when twin's desired properties are updated.
 def device_twin_callback(update_state, payload, user_context):
     global IMAGE_CLASSIFY_THRESHOLD
 
-    print("\nTwin callback called with:\nupdateStatus = {}\npayload = {}".format(update_state, payload))
+    print("\nTwin callback called with:\nupdateStatus = {}\npayload = {}".format(
+        update_state, payload))
     data = json.loads(payload)
     if "desired" in data:
         data = data["desired"]

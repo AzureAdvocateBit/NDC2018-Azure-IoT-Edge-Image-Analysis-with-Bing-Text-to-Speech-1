@@ -4,7 +4,7 @@
     "image": {
         "repository": "glovebox/camera-capture-pi-camera",
         "tag": {
-            "version": "2.2",
+            "version": "2.12",
             "platforms": {
                 "arm32v7": "./Dockerfile.arm32v7"
             }

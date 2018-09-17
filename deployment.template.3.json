@@ -24,14 +24,14 @@
                     }
                 },
                 "modules": {
-                    "camera-capture": {
-                        "version": "1.0",
-                        "type": "docker",
+                    "CameraCaptureOpenCV": {
                         "status": "running",
                         "restartPolicy": "always",
+                        "version": "1.1",
+                        "type": "docker",
                         "settings": {
-                            "image": "${MODULES.camera-capture-pi-camera.arm32v7}",
-                            "createOptions": "{\"Env\":[\"CertFile=/etc/ssl/certs/ca-certificates.crt\",\"BingKey=7eea5b06e60a41ddb9c81d6458166bfc\",\"IotHubCS=HostName=glovebox-iothub.azure-devices.net;DeviceId=ubuntu;SharedAccessKey=J8SvZ4Ued728owP30S/LDHu/XmL1TLjnYBZdK6jKG6A=\"],\"HostConfig\":{\"Devices\":[{\"PathOnHost\":\"/dev/vchiq\",\"PathInContainer\":\"/dev/vchiq\",\"CgroupPermissions\":\"mrw\"},{\"PathOnHost\":\"/dev/i2c-1\",\"PathInContainer\":\"/dev/i2c-1\",\"CgroupPermissions\":\"mrw\"},{\"PathOnHost\":\"/dev/snd\",\"PathInContainer\":\"/dev/snd\",\"CgroupPermissions\":\"mrw\"}]}}"
+                            "image": "${MODULES.CameraCaptureOpenCV.arm32v7}",
+                            "createOptions": "{\"Env\":[\"Video=0\",\"BingKey=7eea5b06e60a41ddb9c81d6458166bfc\",\"AiEndpoint=http://image-classifier-service:80/image\",\"CertFile=/etc/ssl/certs/ca-certificates.crt\",\"IotHubCS=HostName=glovebox-iothub.azure-devices.net;DeviceId=ubuntu;SharedAccessKey=J8SvZ4Ued728owP30S/LDHu/XmL1TLjnYBZdK6jKG6A=\"],\"HostConfig\":{\"Devices\":[{\"PathOnHost\":\"/dev/video1\",\"PathInContainer\":\"/dev/video0\",\"CgroupPermissions\":\"mrw\"},{\"PathOnHost\":\"/dev/snd\",\"PathInContainer\":\"/dev/snd\",\"CgroupPermissions\":\"mrw\"}]}}"
                         }
                     },
                     "image-classifier-service": {
@@ -40,7 +40,7 @@
                         "version": "1.1",
                         "type": "docker",
                         "settings": {
-                            "image": "${MODULES.image-classifier-service.arm32v7}",
+                            "image": "${MODULES.ImageClassifierService.arm32v7}",
                             "createOptions": "{\"HostConfig\":{\"Binds\":[\"/home/pi/images:/images\"],\"PortBindings\":{\"3000/tcp\":[{\"HostPort\":\"3000\"}]}}}"
                         }
                     }

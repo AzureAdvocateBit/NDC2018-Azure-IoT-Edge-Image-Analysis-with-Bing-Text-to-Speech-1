@@ -27,6 +27,8 @@ RUN pip3 install --upgrade https://www.piwheels.org/simple/tensorflow/tensorflow
 RUN pip3 install ptvsd==3.0.0
 ADD app /app
 
+RUN mkdir /images
+
 EXPOSE 80
 
 # Run the flask server for the endpoints

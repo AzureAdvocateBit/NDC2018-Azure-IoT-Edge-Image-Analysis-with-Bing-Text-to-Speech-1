@@ -12,7 +12,7 @@ class HubManager(object):
 
     def __init__(self, connection_string = None, protocol = IoTHubTransportProvider.MQTT):
         if not connection_string:
-            connection_string = os.environ['EdgeHubConnectionString']
+            connection_string = os.environ['IotHubCS']
 
         print("\nPython %s\n" % sys.version)
         print("IoT Hub Client for Python")
@@ -27,7 +27,7 @@ class HubManager(object):
         self.set_certificates()
 
     def set_certificates(self):
-        CERT_FILE = os.environ['EdgeModuleCACertificateFile']
+        CERT_FILE = os.environ['CertFile']
         print("Adding TrustedCerts from: {0}".format(CERT_FILE))
 
         # this brings in x509 privateKey and certificate

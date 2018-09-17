@@ -115,8 +115,6 @@ class CameraCapture(object):
         # time.sleep(0.5)
         print("send frame: " + str(count))
 
-        print(type(frame))
-
         headers = {'Content-Type': 'application/octet-stream'}
         response = requests.post(self.imageProcessingEndpoint, headers = headers, params = self.imageProcessingParams, data = frame)
         if self.verbose:
@@ -133,7 +131,7 @@ class CameraCapture(object):
 
         sortResponse = sorted(response.json(), key=lambda k: k['Probability'], reverse=True)[0]
         probability = sortResponse['Probability']
-        if probability > 0.30:
+        if probability > 0.70:
             self.tts.Text2Speech(sortResponse['Tag'])
 
         jsonData = json.dumps(sortResponse)

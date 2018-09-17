@@ -1,5 +1,8 @@
 FROM microsoft/azureiotedge-seeed-camera-capture:1.0-deps-arm32v7
 
+RUN apt update && apt install -y git portaudio19-dev
+RUN pip install wave git+https://github.com/westparkcom/Python-Bing-TTS.git
+
 WORKDIR /app
 
 COPY fonts/. ./fonts/

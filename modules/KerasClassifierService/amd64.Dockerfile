@@ -21,6 +21,7 @@ RUN ls
 
 # Run the flask server for the endpoints
 # CMD python app.py
+ENV PYTHONUNBUFFERED=1
 
 CMD ["python3", "-m", "main"]
 
